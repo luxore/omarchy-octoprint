@@ -35,8 +35,20 @@ function pauseLabel(observation) {
   var action = pauseAction(observation)
   if (action === "pause") return "Pause"
   if (action === "resume") return "Resume"
-  var text = String(observation && observation.stateText || "")
-  return text ? text + "…" : "Working…"
+  return String(observation && observation.stateText || "").toLowerCase() === "finishing"
+    ? "Finishing…" : "Working…"
+}
+
+function notificationCommand(title, body, urgency) {
+  var escapedBody = String(body || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+  if (escapedBody.charAt(0) === "-") escapedBody = "&#45;" + escapedBody.slice(1)
+  return [
+    "omarchy-notification-send", "--app-name", "OctoPrint",
+    "-u", urgency || "normal", String(title), escapedBody
+  ]
 }
 
 function unavailable(message) {

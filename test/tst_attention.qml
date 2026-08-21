@@ -29,6 +29,26 @@ TestCase {
     compare(Attention.pauseAction({ state: "printing", stateText: "Starting" }), "pause")
     compare(Attention.pauseAction({ state: "printing", stateText: "Finishing" }), "")
     compare(Attention.pauseLabel({ state: "printing", stateText: "Finishing" }), "Finishing…")
+    compare(Attention.pauseLabel({ state: "idle", stateText: "<img src='file:///tmp/x'>" }), "Working…")
+  }
+
+  function test_notifications_escape_remote_markup_and_use_the_wrapper_contract() {
+    var command = Attention.notificationCommand(
+      "Printer error",
+      "<img src='file:///tmp/x'> & fault",
+      "critical"
+    )
+    compare(command.length, 7)
+    compare(command[0], "omarchy-notification-send")
+    compare(command[1], "--app-name")
+    compare(command[2], "OctoPrint")
+    compare(command[3], "-u")
+    compare(command[4], "critical")
+    compare(command[5], "Printer error")
+    compare(command[6], "&lt;img src='file:///tmp/x'&gt; &amp; fault")
+
+    command = Attention.notificationCommand("Print paused", "--exec", "normal")
+    compare(command[6], "&#45;-exec")
   }
 
   function test_completedPrintNotifies() {

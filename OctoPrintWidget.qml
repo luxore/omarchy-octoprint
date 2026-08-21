@@ -292,10 +292,7 @@ Panel {
   }
 
   function notify(title, body, urgency) {
-    notifyProcess.command = [
-      "omarchy-notification-send", "-a", "OctoPrint", "-u", urgency || "normal",
-      String(title), String(body)
-    ]
+    notifyProcess.command = Attention.notificationCommand(title, body, urgency)
     notifyProcess.running = true
   }
 
@@ -692,11 +689,13 @@ Panel {
     active: root.needsAttention
     dimmed: !root.initialized || (root.printer.state === "offline" && root.printer.faulted !== true && root.lastError === "")
     tooltipText: root.lastError !== ""
-      ? root.lastError
+      ? "OctoPrint unavailable"
       : (root.jobInProgress
           ? root.completion + "% · " + root.formatDuration(root.printer.progress.printTimeLeft)
               + " remaining · ETA " + root.formatClock(root.printer.progress.etaAt)
-          : (root.printer.errorMessage || root.printer.stateText))
+          : ((root.printer.state === "error" || root.printer.faulted === true)
+              ? "Printer error"
+              : (root.printer.connected ? "Printer ready" : "Printer disconnected")))
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.MiddleButton) root.refresh()
       else root.toggle()
@@ -939,6 +938,7 @@ Panel {
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.cameraError !== "" ? root.cameraError : "Waiting for camera"
+                textFormat: Text.PlainText
                 color: root.cameraError !== "" ? Color.urgent : root.detailColor
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
@@ -959,6 +959,7 @@ Panel {
               anchors.leftMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
               text: root.printer.stateText
+              textFormat: Text.PlainText
               color: Color.foreground
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
@@ -997,6 +998,7 @@ Panel {
               || ((root.printer.connected && root.printer.faulted !== true && root.printer.state !== "error")
                   ? "Printer ready"
                   : (root.printer.stateText || "Printer disconnected"))
+            textFormat: Text.PlainText
             color: Color.popups.text
             font.family: Style.font.family
             font.pixelSize: Style.font.title
@@ -1008,6 +1010,7 @@ Panel {
             visible: root.printer.errorMessage !== ""
             wrapMode: Text.WordWrap
             text: root.printer.errorMessage
+            textFormat: Text.PlainText
             color: Color.urgent
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
@@ -1092,6 +1095,7 @@ Panel {
             width: parent.width
             wrapMode: Text.WordWrap
             text: root.lastError
+            textFormat: Text.PlainText
             color: Color.urgent
             font.family: Style.font.family
             font.pixelSize: Style.font.body
@@ -1111,6 +1115,7 @@ Panel {
           visible: root.commandError !== ""
           wrapMode: Text.WordWrap
           text: root.commandError
+          textFormat: Text.PlainText
           color: Color.urgent
           font.family: Style.font.family
           font.pixelSize: Style.font.caption

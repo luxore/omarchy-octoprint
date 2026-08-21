@@ -155,7 +155,7 @@ class ServerCase(unittest.TestCase):
                 other.fetch_snapshot(f"{self.url}/snapshot")
             request = urlopen.call_args.args[0]
             self.assertIsNone(request.get_header("X-api-key"))
-            self.assertFalse(urlopen.call_args.kwargs["protect_origin"])
+            self.assertTrue(urlopen.call_args.kwargs["protect_origin"])
 
     def test_stream_uses_one_connection_and_private_runtime_file(self):
         client = OctoPrintClient(self.url, "test-key")
@@ -193,7 +193,12 @@ class ServerCase(unittest.TestCase):
 
     def test_camera_rejects_credentials_at_runtime(self):
         client = OctoPrintClient(self.url, "test-key")
-        for path in ("/snapshot?token=never", "/snapshot#secret"):
+        for path in (
+            "/snapshot?token=never",
+            "/snapshot#secret",
+            "file:///tmp/snapshot.jpg",
+            "//camera.example/snapshot",
+        ):
             with self.subTest(path=path), self.assertRaises(ClientError):
                 client.fetch_snapshot(path)
         self.assertEqual(OctoPrintHandler.starts, [])

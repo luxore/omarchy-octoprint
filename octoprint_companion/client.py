@@ -77,6 +77,12 @@ def origin(url: str) -> tuple[str, str | None, int | None]:
 
 def validate_camera_path(value: str) -> None:
     parsed = urllib.parse.urlsplit(value)
+    if parsed.scheme and parsed.scheme not in {"http", "https"}:
+        raise ClientError("Camera URLs must use http:// or https://")
+    if parsed.netloc and not parsed.scheme:
+        raise ClientError("Use a complete http:// or https:// camera URL")
+    if parsed.scheme and not parsed.netloc:
+        raise ClientError("Use a complete http:// or https:// camera URL")
     if parsed.username is not None or parsed.password is not None:
         raise ClientError("Do not put credentials in a camera URL")
     if parsed.fragment:
@@ -87,7 +93,7 @@ def validate_camera_path(value: str) -> None:
 
 
 class SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Follow redirects only when an authenticated header stays same-origin."""
+    """Keep a request on its original origin across redirects."""
 
     def redirect_request(self, request, file_pointer, code, message, headers, new_url):
         if origin(request.full_url) != origin(new_url):
@@ -275,7 +281,7 @@ class OctoPrintClient:
         headers = {"Accept": accept, "User-Agent": USER_AGENT}
         if self.api_key and same_origin:
             headers["X-Api-Key"] = self.api_key
-        return urllib.request.Request(target_url, headers=headers), bool(self.api_key and same_origin)
+        return urllib.request.Request(target_url, headers=headers), True
 
     @staticmethod
     def _store_frame(body: bytes, name: str) -> pathlib.Path:

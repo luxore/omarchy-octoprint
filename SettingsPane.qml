@@ -304,6 +304,7 @@ FocusScope {
         width: parent.width
         visible: root.localError !== "" || root.message !== ""
         text: root.localError !== "" ? root.localError : root.message
+        textFormat: Text.PlainText
         wrapMode: Text.WordWrap
         color: root.localError !== "" || root.messageIsError ? Color.urgent : Color.accent
         font.family: Style.font.family
