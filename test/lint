@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+python3 -m py_compile bin/octoprint-companion octoprint_companion/*.py test/test_*.py
+python3 -m json.tool manifest.json >/dev/null
+qt_bin="${QT_BIN_DIR:-/usr/lib/qt6/bin}"
+QT_QPA_PLATFORM=offscreen "$qt_bin/qmltestrunner" -input test/tst_attention.qml
+
+if rg -n 'Color\.(mSurface|mSurfaceVariant)|Style\.radius[A-Z]' --glob '*.qml'; then
+  echo "QML contains non-Omarchy style tokens" >&2
+  exit 1
+fi
+
+if rg -ni '"(api[_-]?key|password|token|secret)"\s*:' manifest.json; then
+  echo "manifest contains a secret-bearing setting" >&2
+  exit 1
+fi
+
+if rg -n '[😀-🙏🌀-🫿]' --glob '!preview.png' --glob '!test/lint' .; then
+  echo "repository contains emoji" >&2
+  exit 1
+fi

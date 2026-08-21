@@ -1,0 +1,15 @@
+{
+  "job": {
+    "file": {
+      "display": "voronoi-lamp.gcode",
+      "name": "voronoi-lamp.gcode",
+      "path": "voronoi-lamp.gcode"
+    }
+  },
+  "progress": {
+    "completion": 63.4,
+    "printTime": 4120,
+    "printTimeLeft": 2375
+  },
+  "state": "Printing"
+}

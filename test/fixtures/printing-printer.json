@@ -1,0 +1,16 @@
+{
+  "state": {
+    "text": "Printing",
+    "flags": {
+      "operational": true,
+      "printing": true,
+      "paused": false,
+      "error": false,
+      "closedOrError": false
+    }
+  },
+  "temperature": {
+    "tool0": {"actual": 211.3, "target": 210.0},
+    "bed": {"actual": 59.8, "target": 60.0}
+  }
+}

@@ -1,0 +1,76 @@
+.pragma library
+
+function isActive(observation) {
+  if (!observation) return false
+  return observation.state === "printing"
+    || observation.state === "paused"
+    || observation.state === "cancelling"
+}
+
+function isFault(observation) {
+  if (!observation) return false
+  return observation.faulted === true
+    || observation.state === "error"
+    || observation.state === "unreachable"
+}
+
+function ownsStatus(instance, instances) {
+  return !instances || instances.length === 0 || instances[0] === instance
+}
+
+function pauseAction(observation) {
+  if (!observation) return ""
+  var state = String(observation.state || "")
+  var text = String(observation.stateText || "").toLowerCase()
+
+  // OctoPrint deliberately permits reversing Starting, Pausing, and Resuming.
+  // Finishing is the one printing state in which it rejects pause.
+  if (text === "finishing") return ""
+  if (state === "paused") return "resume"
+  if (state === "printing") return "pause"
+  return ""
+}
+
+function pauseLabel(observation) {
+  var action = pauseAction(observation)
+  if (action === "pause") return "Pause"
+  if (action === "resume") return "Resume"
+  var text = String(observation && observation.stateText || "")
+  return text ? text + "…" : "Working…"
+}
+
+function unavailable(message) {
+  return {
+    configured: true,
+    connected: false,
+    state: "unreachable",
+    stateText: "OctoPrint unreachable",
+    faulted: true,
+    errorMessage: message || "OctoPrint status failed",
+    job: { name: "", path: "" },
+    progress: { completion: null, printTime: null, printTimeLeft: null, etaAt: null },
+    temperature: {
+      tool0: { actual: null, target: null },
+      bed: { actual: null, target: null }
+    },
+    fetchedAt: 0
+  }
+}
+
+function notification(previous, current, cancelPending) {
+  if (!previous || !previous.state || !current || !current.state) return ""
+
+  if (current.state === "idle" && previous.state === "printing" && !cancelPending)
+    return "finished"
+
+  if (current.state === "paused" && previous.state !== "paused")
+    return "paused"
+
+  if (isFault(current) && !isFault(previous))
+    return "error"
+
+  if (current.state === "offline" && isActive(previous))
+    return "error"
+
+  return ""
+}
