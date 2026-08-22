@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://omarchy.org"><img alt="Omarchy 4" src="https://img.shields.io/badge/Omarchy-4.0-8bd450?style=flat-square&labelColor=111111"></a>
-  <a href="https://github.com/luxore/omarchy-octoprint/releases"><img alt="Release 0.6.0" src="https://img.shields.io/badge/release-0.6.0-8bd450?style=flat-square&labelColor=111111"></a>
+  <a href="https://github.com/luxore/omarchy-octoprint/releases"><img alt="Release 0.6.1" src="https://img.shields.io/badge/release-0.6.1-8bd450?style=flat-square&labelColor=111111"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-f5f5f5?style=flat-square&labelColor=111111"></a>
 </p>
 

@@ -21,6 +21,25 @@ TestCase {
     verify(Attention.ownsStatus(first, []))
   }
 
+  function test_disconnectedPrinterIsQuietAndDimmedInTheBar() {
+    var offlineAfterError = { state: "offline", connected: false, faulted: true }
+    var unreachable = { state: "unreachable", connected: false, faulted: true }
+
+    verify(!Attention.barAlarm(offlineAfterError, false))
+    verify(!Attention.barAlarm(unreachable, false))
+    verify(Attention.barDimmed(offlineAfterError, true))
+    verify(Attention.barDimmed(unreachable, true))
+  }
+
+  function test_connectedFaultRemainsUrgentInTheBar() {
+    var connectedFault = { state: "error", connected: true, faulted: true }
+
+    verify(Attention.barAlarm(connectedFault, false))
+    verify(!Attention.barAlarm(connectedFault, true))
+    verify(!Attention.barDimmed(connectedFault, true))
+    verify(Attention.barDimmed(connectedFault, false))
+  }
+
   function test_pauseControlMatchesOctoprintTransitions() {
     compare(Attention.pauseAction({ state: "printing", stateText: "Printing" }), "pause")
     compare(Attention.pauseAction({ state: "paused", stateText: "Paused" }), "resume")

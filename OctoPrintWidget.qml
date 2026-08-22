@@ -11,6 +11,8 @@ Panel {
 
   readonly property string pluginId: "io.github.luxore.octoprint"
   readonly property url logoUrl: Qt.resolvedUrl("assets/octoprint.svg")
+  // Nerd Fonts Material Design printer-3d-nozzle (U+F0E5B).
+  readonly property string barIcon: "󰹛"
   readonly property string helperPath:
     Qt.resolvedUrl("bin/octoprint-companion").toString().replace(/^file:\/\//, "")
 
@@ -83,7 +85,7 @@ Panel {
   readonly property bool activePrint: printer.state === "printing" || printer.state === "paused"
   readonly property string pauseAction: Attention.pauseAction(printer)
   readonly property bool barProgressVisible: showProgress && jobInProgress
-  readonly property bool barAlarm: (printer.state === "error" || printer.faulted === true) && !barProgressVisible
+  readonly property bool barAlarm: Attention.barAlarm(printer, barProgressVisible)
   readonly property bool needsAttention: barAlarm || dataIsStale
   readonly property bool dataIsStale: printer.fetchedAt > 0 && nowMs - printer.fetchedAt > Math.max(idlePollMs * 2.5, 120000)
   readonly property int completion: printer.progress.completion === null || printer.progress.completion === undefined
@@ -687,7 +689,7 @@ Panel {
           : Style.bar.statusSlot)
       : (root.bar ? root.bar.barSize : Style.bar.sizeHorizontal)
     active: root.needsAttention
-    dimmed: !root.initialized || (root.printer.state === "offline" && root.printer.faulted !== true && root.lastError === "")
+    dimmed: Attention.barDimmed(root.printer, root.initialized)
     tooltipText: root.lastError !== ""
       ? "OctoPrint unavailable"
       : (root.jobInProgress
@@ -707,13 +709,13 @@ Panel {
       spacing: Style.space(4)
       visible: !root.bar || !root.bar.vertical
 
-      Image {
+      OpticalGlyph {
         width: Style.bar.iconCanvas
         height: width
-        source: root.logoUrl
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-        sourceSize: Qt.size(width * 2, height * 2)
+        text: root.barIcon
+        fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+        fontSize: Style.bar.iconFont
+        color: root.barAlarm ? Color.urgent : root.barForeground
         anchors.verticalCenter: parent.verticalCenter
       }
 
@@ -763,14 +765,14 @@ Panel {
       spacing: Style.space(2)
       visible: root.bar && root.bar.vertical
 
-      Image {
+      OpticalGlyph {
         anchors.horizontalCenter: parent.horizontalCenter
         width: Style.bar.iconCanvas
         height: width
-        source: root.logoUrl
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-        sourceSize: Qt.size(width * 2, height * 2)
+        text: root.barIcon
+        fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+        fontSize: Style.bar.iconFont
+        color: root.barAlarm ? Color.urgent : root.barForeground
       }
 
       Text {

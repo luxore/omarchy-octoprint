@@ -18,6 +18,17 @@ function ownsStatus(instance, instances) {
   return !instances || instances.length === 0 || instances[0] === instance
 }
 
+function barAlarm(observation, progressVisible) {
+  return observation
+    && observation.connected === true
+    && progressVisible !== true
+    && (observation.state === "error" || observation.faulted === true)
+}
+
+function barDimmed(observation, initialized) {
+  return initialized !== true || !observation || observation.connected !== true
+}
+
 function pauseAction(observation) {
   if (!observation) return ""
   var state = String(observation.state || "")
