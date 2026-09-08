@@ -141,6 +141,62 @@ class ServerCase(unittest.TestCase):
             self.assertTrue(str(target).startswith(directory))
             self.assertEqual(OctoPrintHandler.api_key_headers[-1], "test-key")
 
+    def test_camera_directory_symlink_is_rejected_without_touching_target(self):
+        with tempfile.TemporaryDirectory() as runtime, tempfile.TemporaryDirectory() as victim:
+            directory = pathlib.Path(runtime) / "io.github.luxore.octoprint"
+            directory.symlink_to(victim, target_is_directory=True)
+            with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+                with self.assertRaises(ClientError):
+                    OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+            self.assertEqual(list(pathlib.Path(victim).iterdir()), [])
+
+    def test_camera_rejects_shared_runtime_and_frame_directories(self):
+        for shared_child in (False, True):
+            with self.subTest(shared_child=shared_child), tempfile.TemporaryDirectory() as runtime:
+                directory = pathlib.Path(runtime)
+                if shared_child:
+                    directory /= "io.github.luxore.octoprint"
+                    directory.mkdir()
+                directory.chmod(0o755)
+                with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+                    with self.assertRaises(ClientError):
+                        OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                self.assertEqual(directory.stat().st_mode & 0o777, 0o755)
+
+    def test_exclusive_temporary_collision_does_not_delete_existing_file(self):
+        with tempfile.TemporaryDirectory() as runtime:
+            with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+                path = OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                existing = path.parent / ".collision.tmp"
+                existing.write_bytes(b"keep")
+                with mock.patch("octoprint_companion.client.secrets.token_hex", return_value="collision"):
+                    with self.assertRaises(ClientError):
+                        OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                self.assertEqual(existing.read_bytes(), b"keep")
+
+    def test_failed_frame_replace_preserves_previous_frame_and_cleans_temporary(self):
+        with tempfile.TemporaryDirectory() as runtime:
+            with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+                path = OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                with mock.patch("octoprint_companion.client.os.replace", side_effect=OSError("full")):
+                    with self.assertRaises(ClientError):
+                        OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                self.assertEqual(path.read_bytes(), TEST_JPEG)
+                self.assertEqual(list(path.parent.iterdir()), [path])
+
+    def test_frame_replacement_does_not_follow_destination_symlink(self):
+        with tempfile.TemporaryDirectory() as runtime:
+            with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}):
+                path = OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                victim = pathlib.Path(runtime) / "keep"
+                victim.write_bytes(b"keep")
+                path.unlink()
+                path.symlink_to(victim)
+                OctoPrintClient._store_frame(TEST_JPEG, "snapshot.jpg")
+                self.assertEqual(victim.read_bytes(), b"keep")
+                self.assertFalse(path.is_symlink())
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
     def test_snapshot_does_not_leak_key_cross_origin(self):
         other = OctoPrintClient("http://localhost:9", "test-key", timeout=1)
         with mock.patch("octoprint_companion.client.open_request") as urlopen:

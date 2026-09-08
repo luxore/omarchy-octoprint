@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://omarchy.org"><img alt="Omarchy 4" src="https://img.shields.io/badge/Omarchy-4.0-8bd450?style=flat-square&labelColor=111111"></a>
-  <a href="https://github.com/luxore/omarchy-octoprint/releases"><img alt="Release 0.6.1" src="https://img.shields.io/badge/release-0.6.1-8bd450?style=flat-square&labelColor=111111"></a>
+  <a href="https://github.com/luxore/omarchy-octoprint/releases"><img alt="Release 0.6.2" src="https://img.shields.io/badge/release-0.6.2-8bd450?style=flat-square&labelColor=111111"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-f5f5f5?style=flat-square&labelColor=111111"></a>
 </p>
 
@@ -102,6 +102,10 @@ Standard OctoPrint camera routes work without setup. Unusual reverse-proxy
 routes remain available through manifest settings or the CLI.
 
 ## Security
+
+Camera frames are written atomically inside verified owner-only runtime
+directories. The helper rejects symlinked or shared directories and creates
+private temporary files exclusively; a failed update preserves the last frame.
 
 Use OctoPrint's application-key authorization whenever possible. The helper
 stores one key per canonical server URL in the desktop keyring and retrieves it

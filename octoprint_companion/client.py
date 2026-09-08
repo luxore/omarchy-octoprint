@@ -12,6 +12,8 @@ import getpass
 import json
 import os
 import pathlib
+import secrets
+import stat
 import subprocess
 import time
 import urllib.error
@@ -299,15 +301,43 @@ class OctoPrintClient:
         runtime_value = os.environ.get("XDG_RUNTIME_DIR")
         if not runtime_value:
             raise ClientError("XDG_RUNTIME_DIR is unavailable; refusing to store a camera frame")
-        frame_dir = pathlib.Path(runtime_value) / APP_ID
-        frame_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        frame_dir.chmod(0o700)
-        target = frame_dir / name
-        temporary = frame_dir / f"{name}.{os.getpid()}.tmp"
-        temporary.write_bytes(body)
-        temporary.chmod(0o600)
-        temporary.replace(target)
-        return target
+        runtime = pathlib.Path(runtime_value)
+        if not runtime.is_absolute() or pathlib.Path(name).name != name:
+            raise ClientError("Invalid camera frame path")
+        runtime_fd = frame_fd = None
+        temporary = None
+        try:
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+            runtime_fd = os.open(runtime, flags)
+            _validate_private_directory(runtime_fd)
+            try:
+                os.mkdir(APP_ID, mode=0o700, dir_fd=runtime_fd)
+            except FileExistsError:
+                pass
+            frame_fd = os.open(APP_ID, flags, dir_fd=runtime_fd)
+            _validate_private_directory(frame_fd)
+            candidate = f".{secrets.token_hex(16)}.tmp"
+            fd = os.open(
+                candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600, dir_fd=frame_fd,
+            )
+            temporary = candidate
+            with os.fdopen(fd, "wb") as output:
+                output.write(body)
+            os.replace(temporary, name, src_dir_fd=frame_fd, dst_dir_fd=frame_fd)
+            temporary = None
+        except OSError as error:
+            raise ClientError("Cannot safely store a private camera frame") from error
+        finally:
+            if frame_fd is not None:
+                try:
+                    if temporary is not None:
+                        os.unlink(temporary, dir_fd=frame_fd)
+                finally:
+                    os.close(frame_fd)
+            if runtime_fd is not None:
+                os.close(runtime_fd)
+        return runtime / APP_ID / name
 
     def fetch_snapshot(self, snapshot_path: str) -> pathlib.Path:
         request, protect_origin = self._camera_request(snapshot_path, "image/*")
@@ -352,6 +382,12 @@ class OctoPrintClient:
             raise ClientError(f"The webcam returned HTTP {error.code}", error.code) from error
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             raise ClientError("The webcam stream is unreachable") from error
+
+
+def _validate_private_directory(fd: int) -> None:
+    metadata = os.fstat(fd)
+    if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) & 0o077:
+        raise ClientError("Camera frames require an owner-only runtime directory")
 
 
 def _mjpeg_frames(response, boundary: bytes):

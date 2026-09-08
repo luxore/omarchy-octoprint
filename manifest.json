@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.luxore.octoprint",
   "name": "Omarchy OctoPrint",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": "Luxore",
   "license": "MIT",
   "description": "An OctoPrint plugin for Omarchy.",
