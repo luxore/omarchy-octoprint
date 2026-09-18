@@ -164,11 +164,6 @@ Panel {
     statusStarted = false
     statusProcess.command = [helperPath, "--url", instanceUrl, "status"]
     statusProcess.running = true
-    statusStartWatchdog.restart()
-    Qt.callLater(function() {
-      if (!root.statusStarted && !statusProcess.running && root.refreshing)
-        root.applyStatusFailure(root.helperMissingMessage)
-    })
   }
 
   function refreshCamera() {
@@ -709,7 +704,8 @@ Panel {
 
   Timer {
     id: statusStartWatchdog
-    interval: 1500
+    interval: 800
+    running: root.refreshing && !root.statusStarted
     repeat: false
     onTriggered: {
       if (root.statusStarted) return
