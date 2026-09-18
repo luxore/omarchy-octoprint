@@ -253,6 +253,8 @@ Panel {
 
   function applyStatusFailure(message) {
     var detail = message || "OctoPrint status failed"
+    if (Attention.failureKind(detail) === "helper" && cameraError === "")
+      cameraError = detail
     publishStatus(Attention.unavailable(detail), detail)
   }
 
@@ -702,10 +704,9 @@ Panel {
     interval: 1500
     repeat: false
     onTriggered: {
-      if (statusProcess.running && !root.statusStarted) {
-        stopProcess(statusProcess)
-        root.applyStatusFailure(root.helperMissingMessage)
-      }
+      if (root.statusStarted) return
+      if (statusProcess.running) root.stopProcess(statusProcess)
+      root.applyStatusFailure(root.helperMissingMessage)
     }
   }
 
