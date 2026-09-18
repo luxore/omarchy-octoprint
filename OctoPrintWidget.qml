@@ -165,6 +165,10 @@ Panel {
     statusProcess.command = [helperPath, "--url", instanceUrl, "status"]
     statusProcess.running = true
     statusStartWatchdog.restart()
+    Qt.callLater(function() {
+      if (!root.statusStarted && !statusProcess.running && root.refreshing)
+        root.applyStatusFailure(root.helperMissingMessage)
+    })
   }
 
   function refreshCamera() {
@@ -178,6 +182,10 @@ Panel {
     cameraError = ""
     streamProcess.command = [helperPath, "--url", instanceUrl, "stream", "--path", streamPath]
     streamProcess.running = true
+    Qt.callLater(function() {
+      if (!streamProcess.running && root.opened && root.cameraMode === "stream" && root.cameraError === "")
+        root.cameraError = root.helperMissingMessage
+    })
   }
 
   function acceptCameraOutput(output) {
