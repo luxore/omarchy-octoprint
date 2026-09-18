@@ -50,7 +50,9 @@ Panel {
   property bool abandoningStream: false
   property var previousObservation: ({ state: "", faulted: false })
   property bool cancelPending: false
+  property bool statusStarted: false
   property int frameSerial: 0
+  readonly property string helperMissingMessage: "OctoPrint helper is missing. Reinstall the plugin."
   property real nowMs: Date.now()
   property string currentTab: setupComplete ? "monitor" : "setup"
   property string settingsMessage: ""
@@ -159,8 +161,10 @@ Panel {
     for (var i = 0; i < items.length; i++) {
       if (items[i]) items[i].refreshing = true
     }
+    statusStarted = false
     statusProcess.command = [helperPath, "--url", instanceUrl, "status"]
     statusProcess.running = true
+    statusStartWatchdog.restart()
   }
 
   function refreshCamera() {
@@ -193,14 +197,20 @@ Panel {
     }
   }
 
+  function stopProcess(proc) {
+    if (!proc || !proc.running) return
+    try { proc.signal(15) } catch (error) {}
+    proc.running = false
+  }
+
   function stopCamera() {
     if (snapshotProcess.running) {
       abandoningSnapshot = true
-      snapshotProcess.running = false
+      stopProcess(snapshotProcess)
     }
     if (streamProcess.running) {
       abandoningStream = true
-      streamProcess.running = false
+      stopProcess(streamProcess)
     }
     streamRetry.stop()
   }
@@ -364,10 +374,12 @@ Panel {
     command: []
     stdout: StdioCollector { id: statusStdout; waitForEnd: true }
     stderr: StdioCollector { id: statusStderr; waitForEnd: true }
+    onStarted: root.statusStarted = true
     onExited: function(exitCode) {
+      statusStartWatchdog.stop()
       if (exitCode === 0) root.applyStatus(statusStdout.text)
       else {
-        root.applyStatusFailure(String(statusStderr.text || "OctoPrint status failed").trim())
+        root.applyStatusFailure(String(statusStderr.text || root.helperMissingMessage).trim())
       }
     }
   }
@@ -382,6 +394,11 @@ Panel {
         root.abandoningSnapshot = false
         return
       }
+      if (exitCode !== 0 && String(snapshotStdout.text || "").trim() === "") {
+        root.cameraError = root.helperMissingMessage
+        root.frameUrl = ""
+        return
+      }
       root.acceptCameraOutput(snapshotStdout.text)
     }
   }
@@ -391,16 +408,17 @@ Panel {
     running: false
     command: []
     stdout: SplitParser { onRead: function(line) { root.acceptCameraOutput(line) } }
-    onExited: function(_exitCode) {
+    onExited: function(exitCode) {
       if (root.abandoningStream) {
         root.abandoningStream = false
         return
       }
-      if (root.opened && root.cameraMode === "stream") {
-        if (root.cameraError === "") root.cameraError = "Camera stream stopped"
-        root.frameUrl = ""
-        streamRetry.restart()
+      if (!root.opened || root.cameraMode !== "stream") return
+      root.frameUrl = ""
+      if (root.cameraError === "") {
+        root.cameraError = exitCode !== 0 ? root.helperMissingMessage : "Camera stream stopped"
       }
+      if (root.cameraError === "Camera stream stopped") streamRetry.restart()
     }
   }
 
@@ -621,11 +639,11 @@ Panel {
       if (authorizeProcess.running) {
         abandoningAuthorization = true
         authorizing = false
-        authorizeProcess.running = false
+        stopProcess(authorizeProcess)
       }
       if (manualAuthorizeProcess.running) {
         abandoningManualAuthorization = true
-        manualAuthorizeProcess.running = false
+        stopProcess(manualAuthorizeProcess)
       }
     }
   }
@@ -654,7 +672,7 @@ Panel {
     frameUrl = ""
     if (streamProcess.running) {
       abandoningStream = true
-      streamProcess.running = false
+      stopProcess(streamProcess)
     }
     if (opened && cameraMode === "stream") streamRetry.restart()
   }
@@ -666,6 +684,28 @@ Panel {
     if (opened) {
       if (cameraMode === "stream") streamRetry.restart()
       else if (cameraMode === "snapshots") Qt.callLater(root.refreshCamera)
+    }
+  }
+
+  Component.onDestruction: {
+    stopCamera()
+    statusStartWatchdog.stop()
+    var procs = [
+      statusProcess, commandProcess, authorizeProcess, settingsProcess,
+      preferenceProcess, forgetProcess, manualAuthorizeProcess, notifyProcess, openProcess
+    ]
+    for (var i = 0; i < procs.length; i++) root.stopProcess(procs[i])
+  }
+
+  Timer {
+    id: statusStartWatchdog
+    interval: 1500
+    repeat: false
+    onTriggered: {
+      if (statusProcess.running && !root.statusStarted) {
+        stopProcess(statusProcess)
+        root.applyStatusFailure(root.helperMissingMessage)
+      }
     }
   }
 

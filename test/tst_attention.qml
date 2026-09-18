@@ -98,6 +98,7 @@ TestCase {
   function test_transportFailureClearsLiveMeasurements() {
     var unavailable = Attention.unavailable("Network down")
     compare(unavailable.state, "unreachable")
+    compare(unavailable.stateText, "OctoPrint unreachable")
     compare(unavailable.connected, false)
     compare(unavailable.faulted, true)
     compare(unavailable.errorMessage, "Network down")
@@ -106,6 +107,17 @@ TestCase {
     compare(unavailable.progress.etaAt, null)
     compare(unavailable.temperature.tool0.actual, null)
     compare(unavailable.fetchedAt, 0)
+  }
+
+  function test_authAndHelperFailuresDoNotClaimUnreachable() {
+    var auth = Attention.unavailable("OctoPrint authorization is required")
+    compare(auth.state, "unreachable")
+    compare(auth.stateText, "Authorization required")
+    compare(auth.errorMessage, "OctoPrint authorization is required")
+
+    var helper = Attention.unavailable("OctoPrint helper is missing. Reinstall the plugin.")
+    compare(helper.stateText, "Helper unavailable")
+    compare(helper.errorMessage, "OctoPrint helper is missing. Reinstall the plugin.")
   }
 
   function test_errorThenFaultedOfflineDoesNotRepeat() {

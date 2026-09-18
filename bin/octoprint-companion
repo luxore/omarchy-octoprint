@@ -106,7 +106,7 @@ def main() -> int:
             return 0
         if args.command == "open":
             subprocess.Popen(
-                ["xdg-open", server],
+                ["/usr/bin/xdg-open", server],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,

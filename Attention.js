@@ -62,14 +62,25 @@ function notificationCommand(title, body, urgency) {
   ]
 }
 
+function failureKind(message) {
+  var text = String(message || "").toLowerCase()
+  if (text.indexOf("authorize") >= 0 || text.indexOf("authorization") >= 0) return "auth"
+  if (text.indexOf("helper is missing") >= 0) return "helper"
+  return "transport"
+}
+
 function unavailable(message) {
+  var detail = message || "OctoPrint status failed"
+  var kind = failureKind(detail)
   return {
     configured: true,
     connected: false,
     state: "unreachable",
-    stateText: "OctoPrint unreachable",
+    stateText: kind === "auth"
+      ? "Authorization required"
+      : (kind === "helper" ? "Helper unavailable" : "OctoPrint unreachable"),
     faulted: true,
-    errorMessage: message || "OctoPrint status failed",
+    errorMessage: detail,
     job: { name: "", path: "" },
     progress: { completion: null, printTime: null, printTimeLeft: null, etaAt: null },
     temperature: {

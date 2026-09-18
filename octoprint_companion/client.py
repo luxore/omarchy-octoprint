@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import concurrent.futures
 import getpass
+import ipaddress
 import json
 import os
 import pathlib
+import re
 import secrets
 import stat
 import subprocess
@@ -28,6 +30,10 @@ from . import __version__
 APP_ID = "io.github.luxore.octoprint"
 APP_NAME = "Omarchy OctoPrint"
 USER_AGENT = f"{APP_NAME}/{__version__}"
+SECRET_TOOL = "/usr/bin/secret-tool"
+XDG_OPEN = "/usr/bin/xdg-open"
+OMARCHY = "/usr/bin/omarchy"
+HOST_LABEL = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
 MAX_JSON_BODY = 2 * 1024 * 1024
 MAX_CAMERA_FRAME = 10 * 1024 * 1024
 MAX_CAMERA_PIXELS = 16_000_000
@@ -51,8 +57,22 @@ class ClientError(RuntimeError):
         self.status = status
 
 
+def _valid_hostname(host: str) -> bool:
+    if not host or len(host) > 253:
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    labels = host.split(".")
+    return bool(labels) and all(label and HOST_LABEL.fullmatch(label) for label in labels)
+
+
 def canonical_url(value: str) -> str:
-    value = value.strip().rstrip("/")
+    value = value.strip()
+    if not value or any(ch.isspace() for ch in value):
+        raise ClientError("Set a complete OctoPrint URL, including http:// or https://")
     if "://" not in value:
         value = f"http://{value}"
     parsed = urllib.parse.urlsplit(value)
@@ -64,7 +84,9 @@ def canonical_url(value: str) -> str:
         parsed.port
     except ValueError as error:
         raise ClientError("The configured URL has an invalid port") from error
-    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    if parsed.hostname is None or not _valid_hostname(parsed.hostname):
+        raise ClientError("Set a complete OctoPrint URL, including http:// or https://")
+    return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
 
 def origin(url: str) -> tuple[str, str | None, int | None]:
@@ -116,7 +138,7 @@ class SecretStore:
     def lookup(server: str) -> str | None:
         try:
             result = subprocess.run(
-                ["secret-tool", "lookup", "application", APP_ID, "server", server],
+                [SECRET_TOOL, "lookup", "application", APP_ID, "server", server],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -132,7 +154,7 @@ class SecretStore:
         try:
             subprocess.run(
                 [
-                    "secret-tool",
+                    SECRET_TOOL,
                     "store",
                     f"--label={APP_NAME} at {server}",
                     "application",
@@ -156,7 +178,7 @@ class SecretStore:
     def clear(server: str) -> None:
         try:
             subprocess.run(
-                ["secret-tool", "clear", "application", APP_ID, "server", server],
+                [SECRET_TOOL, "clear", "application", APP_ID, "server", server],
                 check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -638,7 +660,7 @@ def authorize(
         raise ClientError("OctoPrint returned an unsafe authorization URL")
     try:
         subprocess.Popen(
-            ["xdg-open", dialog_url],
+            [XDG_OPEN, dialog_url],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -675,7 +697,7 @@ def _persist_settings(settings: dict[str, str]) -> None:
     try:
         for key, value in settings.items():
             subprocess.run(
-                ["omarchy", "bar", "set", APP_ID, key, value],
+                [OMARCHY, "bar", "set", APP_ID, key, value],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,

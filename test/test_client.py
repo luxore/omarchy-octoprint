@@ -311,7 +311,7 @@ class ServerCase(unittest.TestCase):
         self.assertEqual(
             run.call_args.args[0],
             [
-                "secret-tool",
+                "/usr/bin/secret-tool",
                 "clear",
                 "application",
                 "io.github.luxore.octoprint",
@@ -428,6 +428,10 @@ class NormalizationCase(unittest.TestCase):
     def test_invalid_url_is_rejected(self):
         with self.assertRaisesRegex(ClientError, "complete OctoPrint URL"):
             OctoPrintClient("")
+        for value in ("not a url", "http://", "http://.", "ftp://octopi.local"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ClientError, "complete OctoPrint URL"):
+                    canonical_url(value)
 
     def test_bare_hostname_and_ip_get_a_helpful_http_default(self):
         self.assertEqual(canonical_url("octopi.local"), "http://octopi.local")
@@ -456,7 +460,7 @@ class NormalizationCase(unittest.TestCase):
         calls = [call.args[0] for call in run.call_args_list]
         self.assertIn(
             [
-                "omarchy",
+                "/usr/bin/omarchy",
                 "bar",
                 "set",
                 "io.github.luxore.octoprint",
