@@ -275,6 +275,7 @@ Panel {
     refreshing = false
     lastError = errorMessage || ""
     if (lastError !== "") frameUrl = ""
+    if (Attention.failureKind(lastError) === "helper") cameraError = lastError
     printer = observation
     if (announce) {
       evaluateTransition(observation)
